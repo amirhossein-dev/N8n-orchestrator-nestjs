@@ -1,0 +1,7 @@
+{
+  "rules": {
+    "prettier/prettier": "off"
+  },
+  "singleQuote": true,
+  "trailingComma": "all"
+}
