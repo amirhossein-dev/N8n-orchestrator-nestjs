@@ -1,0 +1,28 @@
+{
+  "tenant": {
+    "slug": "enterprise-pilot",
+    "name": "Synthetic test company",
+    "enterprise": true,
+    "status": "active"
+  },
+  "members": [
+    {
+      "phone": "+15550001001",
+      "firstName": "Synthetic",
+      "lastName": "Operator",
+      "roles": [
+        "operator"
+      ],
+      "status": "active"
+    },
+    {
+      "phone": "+15550001002",
+      "firstName": "Synthetic",
+      "lastName": "Reviewer",
+      "roles": [
+        "reviewer"
+      ],
+      "status": "active"
+    }
+  ]
+}
