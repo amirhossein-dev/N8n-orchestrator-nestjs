@@ -38,8 +38,6 @@ export class IdentityGuard implements CanActivate {
       req.principal=await this.identity.authenticateWeb(cookie);
       if(!SAFE.has(req.method))assertCsrf(this.config,req.principal.session.id,header(req,'x-dara-csrf'));
     } else fail('AUTHENTICATION_REQUIRED',401);
-    // The legacy global users API is not a tenant-scoped directory.
-    if(req.path==='/users'||req.path.startsWith('/users/'))fail('LEGACY_USERS_API_DISABLED',403);
     const permission=this.reflector.getAllAndOverride<string>('identity.permission',[ctx.getHandler(),ctx.getClass()]);
     if(permission && !this.identity.publicView(requiredPrincipal(req)).permissions.includes(permission))fail('PERMISSION_DENIED',403);
     return true;

@@ -17,6 +17,8 @@ import { PgIdentityStore } from '../src/identity/pg-store';
 import { provision, parseRoster } from '../src/identity/core/provision';
 import { OrchestratorController } from '../src/orchestrator/orchestrator.controller';
 import { OrchestratorService } from '../src/orchestrator/orchestrator.service';
+import { UsersController } from '../src/users/users.controller';
+import { UsersService } from '../src/users/users.service';
 
 async function main() {
   if(process.env.IDENTITY_TEST_OPT_IN!=='CREATE_IDENTITY_TABLES_IN_EMPTY_TEST_DATABASE')throw new Error('EXPLICIT_TEST_OPT_IN_REQUIRED');
@@ -35,12 +37,17 @@ async function main() {
     await provision(new PgIdentityStore(setup),parseRoster({tenant:{slug:'enterprise-pilot',name:'Synthetic test tenant',status:'active',enterprise:true},members:[{phone:'+15550001001',firstName:'Synthetic',lastName:'Only',roles:['operator'],status:'active'},{phone:'+15550001002',firstName:'Synthetic',lastName:'Two',roles:['reviewer'],status:'active'}]}),true,'target-http-integration');
   } finally {await setup.destroy();}
   let observed:Record<string,unknown>|null=null;
+  let legacyUserCalls=0;
+  const fakeUsers={findAll:async()=>{legacyUserCalls++;return [];},create:async()=>{legacyUserCalls++;return {};}};
   const fakeOrchestrator={orchestrate:async(body:Record<string,unknown>)=>{observed=body;return {version:'1.0',type:'reply',requestId:body.requestId,replyText:'Synthetic route reply',debug:{mustNotLeak:true}};},toolResult:async(body:Record<string,unknown>)=>({version:'1.0',type:'reply',requestId:body.requestId,replyText:'Synthetic callback reply'})};
-  const module=await Test.createTestingModule({imports:[TypeOrmModule.forRoot(opts),IdentityModule],controllers:[OrchestratorController],providers:[{provide:OrchestratorService,useValue:fakeOrchestrator}]}).compile();
+  const createModule=()=>Test.createTestingModule({imports:[TypeOrmModule.forRoot(opts),IdentityModule],controllers:[OrchestratorController,UsersController],providers:[{provide:OrchestratorService,useValue:fakeOrchestrator},{provide:UsersService,useValue:fakeUsers}]}).compile();
+  const module=await createModule();
   const app=module.createNestApplication();await app.init();const server=app.getHttpServer();let checks=0;
   const pass=()=>{checks++;};
   try {
     await request(server).get('/identity/me').expect(401);pass();
+    await request(server).get('/Users').expect(401);pass();
+    await request(server).post('/USERS').set('X-DARA-Smoke-Key',smokeKey).send({}).expect(403).expect({error:'SERVICE_SCOPE_DENIED'});pass();
     await request(server).post('/identity/otp/request').send({phone:'+15550001001',tenant:'enterprise-pilot',client:'web'}).expect(403);pass();
     await request(server).post('/identity/otp/request').set('Origin',origin).send({phone:'+15550001001',tenant:'enterprise-pilot',client:'native'}).expect(403);pass();
     const c=await request(server).post('/identity/otp/request').set('Origin',origin).send({phone:'+15550001001',tenant:'enterprise-pilot',client:'web',deviceName:'Integration web'}).expect(201);
@@ -50,6 +57,12 @@ async function main() {
     const header=(signed.headers['set-cookie'] as unknown as string[])[0];assert.match(header,/HttpOnly/);assert.match(header,/SameSite=Lax/);const cookie=header.split(';')[0];pass();
     await request(server).post('/identity/otp/verify').set('Origin',origin).send(loginBody).expect(401);pass();
     const me=await request(server).get('/identity/me').set('Cookie',cookie).expect(200);assert.equal(me.body.entitlements.enterprise,true);pass();
+    for(const path of ['/users','/Users','/USERS','/uSeRs/','/Users?synthetic=1']) {
+      await request(server).get(path).set('Cookie',cookie).expect(403).expect({error:'LEGACY_USERS_API_DISABLED'});pass();
+      await request(server).post(path).set('Cookie',cookie).set('Origin',origin).set('X-DARA-CSRF',me.body.csrfToken).send({}).expect(403).expect({error:'LEGACY_USERS_API_DISABLED'});pass();
+    }
+    await request(server).head('/Users/').set('Cookie',cookie).expect(403);pass();
+    assert.equal(legacyUserCalls,0);pass();
     await request(server).post('/identity/logout').set('Cookie',cookie).set('Origin',origin).send({}).expect(403);pass();
     const envelope={version:'1.0',requestId:randomUUID(),userId:'victim',channel:'telegram',conversationId:'same',text:'Hello',meta:{admin:true}};
     const out=await request(server).post('/orchestrate').set('Cookie',cookie).set('Origin',origin).set('X-DARA-CSRF',me.body.csrfToken).send(envelope).expect(201);
@@ -66,6 +79,17 @@ async function main() {
     const native=await request(server).post('/identity/otp/verify').send({challengeId:n.body.challengeId,code,firstName:'Native',lastName:'Test',client:'native'}).expect(201);
     const token=native.body.accessToken;assert.equal(token.split('.').length,3);
     await request(server).get('/identity/me').set('Authorization',`Bearer ${token}`).expect(200);pass();
+    await request(server).get('/Users').set('Authorization',`Bearer ${token}`).expect(403).expect({error:'LEGACY_USERS_API_DISABLED'});pass();
+    await request(server).post('/USERS/').set('Authorization',`Bearer ${token}`).send({}).expect(403).expect({error:'LEGACY_USERS_API_DISABLED'});pass();
+    // A mounted prefix must not change the restriction on the same controller.
+    const prefixedApp=(await createModule()).createNestApplication();
+    try {
+      prefixedApp.setGlobalPrefix('api');await prefixedApp.init();
+      await request(prefixedApp.getHttpServer()).get('/api/users').set('Authorization',`Bearer ${token}`).expect(403).expect({error:'LEGACY_USERS_API_DISABLED'});pass();
+      await request(prefixedApp.getHttpServer()).post('/API/uSeRs/').set('Authorization',`Bearer ${token}`).send({}).expect(403).expect({error:'LEGACY_USERS_API_DISABLED'});pass();
+      await request(prefixedApp.getHttpServer()).get('/api/identity/me').set('Authorization',`Bearer ${token}`).expect(200);pass();
+      assert.equal(legacyUserCalls,0);pass();
+    } finally {await prefixedApp.close();}
     const parts=token.split('.');parts[1]=Buffer.from(JSON.stringify({sub:'victim'})).toString('base64url');
     await request(server).get('/identity/me').set('Authorization',`Bearer ${parts.join('.')}`).expect(401);pass();
     const refreshed=await request(server).post('/identity/refresh').send({refreshToken:native.body.refreshToken}).expect(201);pass();
