@@ -50,6 +50,22 @@ No native credential flow is accepted with a browser Origin. Cookies and bearer 
 - The existing Jest suite has one passing AppController test and two unchanged Users tests failing because their test modules omit UsersService/UserRepository dependencies. A broader typecheck also finds an unchanged `supertest` namespace-import error in `test/app.e2e-spec.ts`; this file is excluded from the application build.
 - No migration, roster apply, private environment generation, real HTTP/PostgreSQL integration, SMS, deployment, or production qualification was performed. `git diff --check` passed.
 
+## HTTP runtime checkpoint — 2026-10-07
+- Actual `npm run test:identity:http` passed with **39 checks**, real JwtService and PostgreSQL 15.19. OrchestratorService and legacy UsersService were mocked; their controllers and the identity engine were real. SMS and native SecureStore were not exercised.
+- The tested source is now committed as `662be9276b340a136ce8f5b66648321ebff742a5` on `codex/identity-users-route-fix`, verified on origin. The run itself preceded that commit; the four source/test files below retain the exact tested bytes. The new guard was included, not only the previously tracked files.
+- Working tree before this checkpoint documentation: only the pre-existing `package-lock.json` change. Its SHA-256 is `f8aaaf1e7457ea23a8dbbaface968df987250bbcd76ba777e08b6f103901cee5`; the existing binary diff SHA-256 is `f472d2bc4a0ec702eb46066ff7be3174e3408e65dd3dd345a80548320e3adbc7`. This documentation is an additional uncommitted change.
+- Node v24.18.0 / npm 11.16.0. Nest build, production and integration typechecks, 26 identity logic tests, initialization-failure cleanup and independent patch review passed. Earlier Jest setup failures remain separate; the full Jest suite was not rerun.
+- Real routing reproduced the old `/Users` bypass before the fix. After the controller guard, casing/slash/query/HEAD/native/prefix variants are denied, with zero legacy service calls. Authorized identity, orchestrate binding, logout, JWT tamper rejection and refresh/replay controls passed.
+- Fresh `template0` test databases `dara_phase_a_20261007_identity_test` and `dara_phase_a_20261007_2_identity_test` remain intact. `mydb` was not used. Browser acceptance requires a separate fresh database and is not established by this HTTP checkpoint.
+- Sanitized actual receipt: `TARGET_HTTP_IDENTITY_TEST_PASSED`, `checks=39`, `realJwt=true`, `realPostgresql=true`, `smsSent=false`, `orchestratorBusinessLogic=mocked`, `nativeSecureStoreTested=false`. The retained local receipt is in the Codex Security standalone artifact collection for this repository (`artifacts/phase-a-http-20261007.actual.json`).
+
+| Tested file | SHA-256 |
+|---|---|
+| src/identity/identity.http.ts | e894d7aa866d52fee8f2bc4a7d54d5b297c5131b548e78c36aa7869550284352 |
+| src/users/users.controller.ts | 2548634f327c826607da9e661dffe52fa7e60ccb07a3d3ea5ad8183cc2a0b34c |
+| src/users/legacy-users-disabled.guard.ts | 62630d56e95af7d515018d8f8cb7c7c5119ffa7a7e08222f886645059567019b |
+| test/identity-http.integration.ts | 8e4cc848b56419d036d6055f1bcb22ed3caac04853c95845947ca0830f00a574 |
+
 ## Previous B/A2 n8n smoke workflows
 This patch does not edit n8n or Compose. Anonymous requests now return 401 intentionally.
 For the **bounded development noop test only** generate a separate random AUTH_SMOKE_SERVICE_KEY and set it privately in the backend environment. Add `X-DARA-Smoke-Key` Header Auth credentials to BOTH /orchestrate and /tool-result n8n nodes. Never put it in the mobile/PWA app or production environment. Only the exact text `tool:test`, only `noop.test`, and only the two paths are accepted. A browser Origin is rejected. The service identity is `service:local-noop-test`, not the userId supplied in the body. Restart the Nest process after environment changes.
@@ -72,3 +88,19 @@ It uses real JwtService and PostgreSQL, but a fake OrchestratorService to test H
 - Client refresh operations are serialized. A lost rotation response can require re-login; there is no unsafe token replay grace period and no claim of exactly-once network delivery.
 - Run `npm run identity:cleanup` to preview expired challenge/rate/token housekeeping; append `-- --apply` to remove only rows expired for more than 24h. Consumed refresh tokens are retained until absolute family expiry so replay remains detectable. Sessions, persons, memberships and import history are not automatically deleted. Agree a retention policy before production.
 - No automatic migration rollback is provided; down refuses destructive auth-table deletion. Restore code on a reviewed branch while retaining data, and plan any DB restoration explicitly. No Docker volume deletion.
+
+## Local Web acceptance — 2026-10-08
+
+The real Expo UI → `src/main.ts` Nest bootstrap → PostgreSQL path passed W01–W14 in Chromium 151.0.7922.34 and Firefox 153.0: 28 passed, 0 failed, 0 blocked. This adds browser evidence to the earlier 39-check HTTP checkpoint; it does not rerun or expand that HTTP/JWT result.
+
+The isolated API used `http://localhost:3100`, bound to `127.0.0.1`, with Expo at `http://localhost:8082`. PostgreSQL 15.19 used the fresh database `dara_phase_a_browser_20261007_01_test`. Only the identity migration and synthetic roster provisioning ran; `DB_SYNCHRONIZE=false` remained set. The previous HTTP databases and `mydb` were untouched.
+
+The ignored, mode-0600 `identity-private/.env.identity.browser.local` held independent development secrets and `development_test` OTP configuration. The controlled runner explicitly loaded this file after removing inherited AUTH/DB/runtime variables for migration, provisioning and startup. Existing `identity:*` npm scripts still name `.env.identity.local`; using them directly is not evidence of targeting the browser environment.
+
+Checks included real cookie restoration, CSRF/Origin denial, replay rejection, three real UI logins in independent contexts, logout-all isolation, and preview/apply suspension of a synthetic membership. OTP limits remained unchanged; six real cooldown waits were observed. Normal login responses were not mocked or intercepted. No orchestrator/business or external requests were observed.
+
+The browser regression fixed only frontend error handling for late responses from an old session. The previously committed controller-level `LegacyUsersDisabledGuard` remained unchanged. Idle observation confirmed that 60-second foreground polling can advance `last_seen_at` with no human input: the current policy measures request inactivity, not human inactivity.
+
+Both test servers were stopped after the run; the dedicated database and earlier witnesses were retained. The retained harness/runner are local execution witnesses with fixed target paths and roster names. A future run needs a fresh database, a new private env/roster file, and coordinated target assertions in copies of those scripts; do not overwrite the existing env or clear evidence databases to reuse them.
+
+The tested backend HEAD was `662be9276b340a136ce8f5b66648321ebff742a5`; documentation and the user's existing lockfile changes were uncommitted. See the [sanitized receipt](/home/daraarian/.codex/state/plugins/codex-security/scans/N8n-orchestrator-nestjs/artifacts-c806da034dd4f5aba6f4375d96020af0e56dc5a2a7059808d8ea43d00fac36b2/artifacts/phase-a-browser-20261008.receipt.json) and [scenario matrix/report](/home/daraarian/.codex/state/plugins/codex-security/scans/N8n-orchestrator-nestjs/artifacts-c806da034dd4f5aba6f4375d96020af0e56dc5a2a7059808d8ea43d00fac36b2/hardening/phase-a-browser-acceptance-20261008.md) for source manifests and scope. This stage made no commit or push and does not qualify native, SMS, production TLS, business tools, load capacity, or complete project Jest coverage.
