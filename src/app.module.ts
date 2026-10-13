@@ -6,6 +6,7 @@ import { MemoryModule } from './memory/memory.module';
 import { OrchestratorModule } from './orchestrator/orchestrator.module';
 import { IdentityModule } from './identity/identity.module';
 import { dbConnection } from './identity/db-options';
+import { ChatModule } from './chat/chat.module';
 
 const developmentSync = process.env.DB_SYNCHRONIZE === 'true';
 if (developmentSync && process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test') {
@@ -24,6 +25,7 @@ if (developmentSync && process.env.NODE_ENV !== 'development' && process.env.NOD
     UsersModule,
     MemoryModule,
     OrchestratorModule,
+    ChatModule,
   ],
 })
 export class AppModule {}

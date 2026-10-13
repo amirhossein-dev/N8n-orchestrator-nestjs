@@ -6,6 +6,8 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "test:chat": "jest --runInBand --runTestsByPath src/chat/chat.spec.ts src/chat/gemini-text.provider.spec.ts",
+    "chat:provider-smoke": "node -r ts-node/register scripts/chat-provider-smoke.ts",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -27,8 +29,10 @@
     "test:identity:http": "node --env-file=identity-private/.env.identity.local -r ts-node/register test/identity-http.integration.ts"
   },
   "dependencies": {
+    "@google/genai": "2.29.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "11.0.2",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.0",
     "class-transformer": "^0.5.1",
@@ -36,8 +40,7 @@
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.27",
-    "@nestjs/jwt": "11.0.2"
+    "typeorm": "^0.3.27"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
