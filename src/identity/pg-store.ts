@@ -12,7 +12,7 @@ const COLUMNS: Record<Table, readonly string[]> = {
   import_batches:['id','tenant_id','recorded_at','actor_label','added','updated'],
 };
 const NUMERIC = new Set(['phone_verified_at','created_at','last_seen_at','expires_at','consumed_at','revoked_at','recorded_at','revision','attempts','count','added','updated']);
-class PgTx implements Tx {
+export class PgTx implements Tx {
   constructor(private readonly manager: EntityManager) {}
   private decode<K extends Table>(row: Record<string, unknown>): Tables[K] {
     for(const k of Object.keys(row)) if(NUMERIC.has(k)&&row[k]!==null) {

@@ -17,5 +17,6 @@ import { GeminiTextProvider } from './gemini-text.provider';
     },
     ChatService,
   ],
+  exports: [ChatService, CHAT_CONFIG],
 })
 export class ChatModule {}

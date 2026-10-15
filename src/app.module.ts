@@ -7,6 +7,7 @@ import { OrchestratorModule } from './orchestrator/orchestrator.module';
 import { IdentityModule } from './identity/identity.module';
 import { dbConnection } from './identity/db-options';
 import { ChatModule } from './chat/chat.module';
+import { ContinuityModule } from './chat/continuity.module';
 
 const developmentSync = process.env.DB_SYNCHRONIZE === 'true';
 if (developmentSync && process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test') {
@@ -26,6 +27,7 @@ if (developmentSync && process.env.NODE_ENV !== 'development' && process.env.NOD
     MemoryModule,
     OrchestratorModule,
     ChatModule,
+    ContinuityModule,
   ],
 })
 export class AppModule {}

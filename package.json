@@ -26,7 +26,9 @@
     "identity:cleanup": "node --env-file=identity-private/.env.identity.local -r ts-node/register scripts/identity-admin.ts cleanup",
     "identity:dev": "node --env-file=identity-private/.env.identity.local -r ts-node/register src/main.ts",
     "test:identity": "node scripts/test-identity.mjs",
-    "test:identity:http": "node --env-file=identity-private/.env.identity.local -r ts-node/register test/identity-http.integration.ts"
+    "test:identity:http": "node --env-file=identity-private/.env.identity.local -r ts-node/register test/identity-http.integration.ts",
+    "test:continuity": "node scripts/test-continuity.mjs",
+    "chat:migrate": "ts-node scripts/chat-migrate.ts"
   },
   "dependencies": {
     "@google/genai": "2.29.1",

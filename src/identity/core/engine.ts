@@ -47,6 +47,11 @@ export class IdentityEngine {
     if (now-s.last_seen_at>=60_000) { s={...s,last_seen_at:now}; await tx.put('sessions',s); }
     return {session:s,user:u,tenant:t,membership:m};
   }
+  // Internal composition only: caller holds the identity mutation lock and must
+  // commit expected IdentityError values, just as commit() does above.
+  revalidateInTransaction(tx: Tx, p: Principal): Promise<Principal | IdentityError> {
+    return tx.get('sessions',p.session.id).then(s => this.principal(tx,s));
+  }
   publicView(p: Principal) {
     const permissions=['conversation.use','session.manage_self'];
     if (p.membership.roles.includes('reviewer')) permissions.push('action.review');
